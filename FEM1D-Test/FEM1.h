@@ -39,54 +39,62 @@
 #include <fstream>
 #include <math.h>
 
+using namespace dealii;
 
 template <int dim>
 class FEM
 {
- public:
-  //Class functions
-  FEM (unsigned int order,unsigned int problem); // Class constructor 
-  ~FEM(); //Class destructor
+	const double E = pow(10,11);
+	const double fbar = pow(10,11);
+	const double h = pow(10,10);
 
-  //Function to find the value of xi at the given node (using deal.II node numbering)
-  double xi_at_node(unsigned int dealNode);
+	public:
+		//Class functions
+		FEM (unsigned int order,unsigned int problem); // Class constructor 
+		~FEM(); //Class destructor
 
-  //Define your 1D basis functions and derivatives
-  double basis_function(unsigned int node, double xi);
-  double basis_gradient(unsigned int node, double xi);
+		//Function to find the value of xi at the given node (using deal.II node numbering)
+		double xi_at_node(unsigned int dealNode);
 
-  //Solution steps
-  void generate_mesh(unsigned int numberOfElements);
-  void define_boundary_conds();
-  void setup_system();
-  void assemble_system();
-  void solve();
-  void output_results();
+		//Define your 1D basis functions and derivatives
+		double basis_function(unsigned int node, double xi);
+		double basis_gradient(unsigned int node, double xi);
 
-  //Function to calculate the l2 norm of the error in the finite element sol'n vs. the exact solution
-  double l2norm_of_error();
+		//Solution steps
+		void generate_mesh(unsigned int numberOfElements);
+		void define_boundary_conds();
+		void setup_system();
+		void assemble_system();
+		void solve();
+		void output_results();
 
-  //Class objects
-  Triangulation<dim>   triangulation; //mesh
-  FESystem<dim>        fe; 	      //FE element
-  DoFHandler<dim>      dof_handler;   //Connectivity matrices
+		//Function to calculate the l2 norm of the error in the finite element sol'n vs. the exact solution
+		double l2norm_of_error();
 
-  //Gaussian quadrature - These will be defined in setup_system()
-  unsigned int	        quadRule;    //quadrature rule, i.e. number of quadrature points
-  std::vector<double>	quad_points; //vector of Gauss quadrature points
-  std::vector<double>	quad_weight; //vector of the quadrature point weights
+		double forcing_function(double x);
+		double u_exact(double x);
+
+		//Class objects
+		Triangulation<dim>   triangulation; //mesh
+		FESystem<dim>        fe; 	      //FE element
+		DoFHandler<dim>      dof_handler;   //Connectivity matrices
+
+		//Gaussian quadrature - These will be defined in setup_system()
+		unsigned int	        quadRule;    //quadrature rule, i.e. number of quadrature points
+		std::vector<double>	quad_points; //vector of Gauss quadrature points
+		std::vector<double>	quad_weight;
     
-  //Data structures
-  SparsityPattern       sparsity_pattern; //Sparse matrix pattern
-  SparseMatrix<double>  K;		 //Global stiffness (sparse) matrix
-  Vector<double>        D, F; 		 //Global vectors - Solution vector (D) and Global force vector (F)
-  std::vector<double>   nodeLocation;	 //Vector of the x-coordinate of nodes by global dof number
-  std::map<unsigned int,double> boundary_values;	//Map of dirichlet boundary conditions
-  double                basisFunctionOrder, prob, L, g1, g2;    
+		//Data structures
+		SparsityPattern       sparsity_pattern; //Sparse matrix pattern
+		SparseMatrix<double>  K;		 //Global stiffness (sparse) matrix
+		Vector<double>        D, F; 		 //Global vectors - Solution vector (D) and Global force vector (F)
+		std::vector<double>   nodeLocation;	 //Vector of the x-coordinate of nodes by global dof number
+		std::map<unsigned int,double> boundary_values;	//Map of dirichlet boundary conditions
+		double                basisFunctionOrder, prob, L, g1, g2;
 
-  //solution name array
-  std::vector<std::string> nodal_solution_names;
-  std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
+		//solution name array
+		std::vector<std::string> nodal_solution_names;
+		std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
 };
 
 // Class constructor for a vector field
@@ -145,53 +153,60 @@ double FEM<dim>::xi_at_node(unsigned int dealNode){
 //Define basis functions
 template <int dim>
 double FEM<dim>::basis_function(unsigned int node, double xi){
-  /*"basisFunctionOrder" defines the polynomial order of the basis function,
-    "node" specifies which node the basis function corresponds to, 
-    "xi" is the point (in the bi-unit domain) where the function is being evaluated.
-    You need to calculate the value of the specified basis function and order at the given quadrature pt.*/
+	/*"basisFunctionOrder" defines the polynomial order of the basis function,
+	"node" specifies which node the basis function corresponds to, 
+	"xi" is the point (in the bi-unit domain) where the function is being evaluated.
+	You need to calculate the value of the specified basis function and order at the given quadrature pt.*/
 
-  double value = 1.; //Store the value of the basis function in this variable
+	double value = 1.; //Store the value of the basis function in this variable
 
-  /*You can use the function "xi_at_node" (defined above) to get the value of xi (in the bi-unit domain)
-    at any node in the element - using deal.II's element node numbering pattern.*/
+	/*You can use the function "xi_at_node" (defined above) to get the value of xi (in the bi-unit domain)
+	at any node in the element - using deal.II's element node numbering pattern.*/
 
-  //EDIT
+	//EDIT
+	double xi_ref = xi_at_node(node);
+	for (unsigned int i = 0; i < (basisFunctionOrder + 1) * dim; ++i)
+		if (i != node)
+			value *= (xi - xi_at_node(i)) / (xi_ref - xi_at_node(i));
 
-  return value;
+	return value;
 }
 
 //Define basis function gradient
 template <int dim>
 double FEM<dim>::basis_gradient(unsigned int node, double xi){
-  /*"basisFunctionOrder" defines the polynomial order of the basis function,
-    "node" specifies which node the basis function corresponds to, 
-    "xi" is the point (in the bi-unit domain) where the function is being evaluated.
-    You need to calculate the value of the derivative of the specified basis function and order at the given quadrature pt.
-    Note that this is the derivative with respect to xi (not x)*/
+	/*"basisFunctionOrder" defines the polynomial order of the basis function,
+	"node" specifies which node the basis function corresponds to, 
+	"xi" is the point (in the bi-unit domain) where the function is being evaluated.
+	You need to calculate the value of the derivative of the specified basis function and order at the given quadrature pt.
+	Note that this is the derivative with respect to xi (not x)*/
 
-  double value = 0.; //Store the value of the gradient of the basis function in this variable
+	double value = 0.; //Store the value of the gradient of the basis function in this variable
 
-  /*You can use the function "xi_at_node" (defined above) to get the value of xi (in the bi-unit domain)
-    at any node in the element - using deal.II's element node numbering pattern.*/
+	/*You can use the function "xi_at_node" (defined above) to get the value of xi (in the bi-unit domain)
+	at any node in the element - using deal.II's element node numbering pattern.*/
 
-  //EDIT
+	//EDIT
+	for (unsigned int i = 0; i < (basisFunctionOrder + 1) * dim; i++)
+		if (i != node)
+			value += 1 / (xi - xi_at_node(i));
+	value *= basis_function(node, xi);
 
-  return value;
+	return value;
 }
 
 //Define the problem domain and generate the mesh
 template <int dim>
 void FEM<dim>::generate_mesh(unsigned int numberOfElements){
 
-  //Define the limits of your domain
-  L = ; //EDIT
-  double x_min = 0.;
-  double x_max = L;
+	//Define the limits of your domain
+	L = 0.1; //EDIT
+	double x_min = 0.;
+	double x_max = L;
 
-  Point<dim,double> min(x_min),
-    max(x_max);
-  std::vector<unsigned int> meshDimensions (dim,numberOfElements);
-  GridGenerator::subdivided_hyper_rectangle (triangulation, meshDimensions, min, max);
+	Point<dim,double> min(x_min), max(x_max);
+	std::vector<unsigned int> meshDimensions (dim,numberOfElements);
+	GridGenerator::subdivided_hyper_rectangle (triangulation, meshDimensions, min, max);
 }
 
 //Specify the Dirichlet boundary conditions
@@ -228,7 +243,7 @@ template <int dim>
 void FEM<dim>::setup_system(){
 
   //Define constants for problem (Dirichlet boundary values)
-  g1 = 0; g2 = 0.001; //EDIT
+  g1 = 0.; g2 = 0.001; //EDIT
 
   //Let deal.II organize degrees of freedom
   dof_handler.distribute_dofs (fe);
@@ -271,85 +286,100 @@ void FEM<dim>::setup_system(){
   std::cout << "   Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;   
 }
 
+template <int dim>
+double FEM<dim>::forcing_function(double x)
+{
+	return fbar * x;
+}
+
+
 //Form elmental vectors and matrices and assemble to the global vector (F) and matrix (K)
 template <int dim>
 void FEM<dim>::assemble_system(){
 
-  K=0; F=0;
+	K=0; F=0;
 
-  const unsigned int   			dofs_per_elem = fe.dofs_per_cell; //This gives you number of degrees of freedom per element
-  FullMatrix<double> 				Klocal (dofs_per_elem, dofs_per_elem);
-  Vector<double>      			Flocal (dofs_per_elem);
-  std::vector<unsigned int> local_dof_indices (dofs_per_elem);
-  double										h_e, x, f;
+	const unsigned int   			dofs_per_elem = fe.dofs_per_cell; //This gives you number of degrees of freedom per element
+	FullMatrix<double> 				Klocal (dofs_per_elem, dofs_per_elem);
+	Vector<double>      			Flocal (dofs_per_elem);
+	std::vector<unsigned int> local_dof_indices (dofs_per_elem);
+	double										h_e, x, f;
 
-  //loop over elements  
-  typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active(), 
-    endc = dof_handler.end();
-  for (;elem!=endc; ++elem){
+	//loop over elements  
+	typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active(), 
+	endc = dof_handler.end();
+	for (;elem!=endc; ++elem){
+		/*Retrieve the effective "connectivity matrix" for this element
+			"local_dof_indices" relates local dofs to global dofs,
+			i.e. local_dof_indices[i] gives the global dof number for local dof i.*/
+		elem->get_dof_indices (local_dof_indices);
 
-    /*Retrieve the effective "connectivity matrix" for this element
-      "local_dof_indices" relates local dofs to global dofs,
-      i.e. local_dof_indices[i] gives the global dof number for local dof i.*/
-    elem->get_dof_indices (local_dof_indices);
+		/*We find the element length by subtracting the x-coordinates of the two end nodes
+			of the element. Remember that the vector "nodeLocation" holds the x-coordinates, indexed
+			by the global node number. "local_dof_indices" gives us the global node number indexed by
+			the element node number.*/
+		h_e = nodeLocation[local_dof_indices[1]] - nodeLocation[local_dof_indices[0]];
 
-    /*We find the element length by subtracting the x-coordinates of the two end nodes
-      of the element. Remember that the vector "nodeLocation" holds the x-coordinates, indexed
-      by the global node number. "local_dof_indices" gives us the global node number indexed by
-      the element node number.*/
-    h_e = nodeLocation[local_dof_indices[1]] - nodeLocation[local_dof_indices[0]];
-
-    //Loop over local DOFs and quadrature points to populate Flocal and Klocal.
-    Flocal = 0.;
-    for(unsigned int A=0; A<dofs_per_elem; A++){
-      for(unsigned int q=0; q<quadRule; q++){
-		x = 0;
-		//Interpolate the x-coordinates at the nodes to find the x-coordinate at the quad pt.
-		for(unsigned int B=0; B<dofs_per_elem; B++){
-		  x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+		//Loop over local DOFs and quadrature points to populate Flocal and Klocal.
+		Flocal = 0.;
+		for(unsigned int A=0; A<dofs_per_elem; A++){
+			for(unsigned int q=0; q<quadRule; q++){
+				x = 0;
+				//Interpolate the x-coordinates at the nodes to find the x-coordinate at the quad pt.
+				for(unsigned int B=0; B<dofs_per_elem; B++){
+					x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+				}
+				//EDIT - Define Flocal
+				f = forcing_function(x);
+				Flocal[A] += f * quad_weight[q] * basis_function(A, quad_points[q]);
+			}
 		}
-		//EDIT - Define Flocal.
-		
-      }
-    }
-    //Add nonzero Neumann condition, if applicable
-    if(prob == 2){ 
-      if(nodeLocation[local_dof_indices[1]] == L){
-	//EDIT - Modify Flocal to include the traction on the right boundary.
-      }
-    }
+		Flocal *= h_e / 2;
 
-    //Loop over local DOFs and quadrature points to populate Klocal
-    Klocal = 0;
-    for(unsigned int A=0; A<dofs_per_elem; A++){
-      for(unsigned int B=0; B<dofs_per_elem; B++){
-		for(unsigned int q=0; q<quadRule; q++){
-			//EDIT - Define Klocal.
-
+		//Add nonzero Neumann condition, if applicable
+		if(prob == 2){ 
+			if(nodeLocation[local_dof_indices[1]] == L){
+				//EDIT - Modify Flocal to include the traction on the right boundary.
+				Flocal[1] += h;
+			}
 		}
-      }
-    }
 
-    //Assemble local K and F into global K and F
-    //You will need to used local_dof_indices[A]
-    for(unsigned int A=0; A<dofs_per_elem; A++){
-      //EDIT - add component A of Flocal to the correct location in F
-      /*Remember, local_dof_indices[A] is the global degree-of-freedom number
-	corresponding to element node number A*/
-      for(unsigned int B=0; B<dofs_per_elem; B++){
-	//EDIT - add component A,B of Klocal to the correct location in K (using local_dof_indices)
-	/*Note: K is a sparse matrix, so you need to use the function "add".
-	  For example, to add the variable C to K[i][j], you would use:
-	  K.add(i,j,C);*/
-      }
-    }
+		//Loop over local DOFs and quadrature points to populate Klocal
+		Klocal = 0;
+		for(unsigned int A=0; A<dofs_per_elem; A++){
+			for(unsigned int B=0; B<dofs_per_elem; B++){
+				for(unsigned int q=0; q<quadRule; q++){
+					//EDIT - Define Klocal.
+					double xi = quad_points[q];
+					Klocal[A][B] += quad_weight[q] * basis_function(A, xi) * basis_function(B, xi);
+				}
+			}
+		}
+		Klocal *= 2 * E / h_e;
 
-  }
+		//Assemble local K and F into global K and F
+		//You will need to used local_dof_indices[A]
+		for(unsigned int A=0; A<dofs_per_elem; A++){
+			//EDIT - add component A of Flocal to the correct location in F
+			/*Remember, local_dof_indices[A] is the global degree-of-freedom number
+			corresponding to element node number A*/
+			F[local_dof_indices[A]] += Flocal[A];
+			for(unsigned int B=0; B<dofs_per_elem; B++){
+				//EDIT - add component A,B of Klocal to the correct location in K (using local_dof_indices)
+				/*Note: K is a sparse matrix, so you need to use the function "add".
+				For example, to add the variable C to K[i][j], you would use:
+				K.add(i,j,C);*/
 
-  //Apply Dirichlet boundary conditions
-  /*deal.II applies Dirichlet boundary conditions (using the boundary_values map we
-    defined in the function "define_boundary_conds") without resizing K or F*/
-  MatrixTools::apply_boundary_values (boundary_values, K, D, F, false);
+				K.add(local_dof_indices[A], local_dof_indices[B], Klocal[A][B]);
+			}
+		}
+
+	}
+
+	//Apply Dirichlet boundary conditions
+	/*deal.II applies Dirichlet boundary conditions (using the boundary_values map we
+	defined in the function "define_boundary_conds") without resizing K or F*/
+	MatrixTools::apply_boundary_values (boundary_values, K, D, F, false);
 }
 
 //Solve for D in KD=F
@@ -366,53 +396,73 @@ void FEM<dim>::solve(){
 //Output results
 template <int dim>
 void FEM<dim>::output_results (){
+	char tag[21];
+	snprintf(tag, 21, "solution_%d_o%d.vtk", problem, order);
+	//Write results to VTK file
+	std::ofstream output1(tag);
+	DataOut<dim> data_out;
+	data_out.attach_dof_handler(dof_handler);
 
-  //Write results to VTK file
-  std::ofstream output1("solution.vtk");
-  DataOut<dim> data_out;
-  data_out.attach_dof_handler(dof_handler);
+	//Add nodal DOF data
+	data_out.add_data_vector(D, nodal_solution_names, DataOut<dim>::type_dof_data,
+				nodal_data_component_interpretation);
+	data_out.build_patches();
+	data_out.write_vtk(output1);
+	output1.close();
+}
 
-  //Add nodal DOF data
-  data_out.add_data_vector(D, nodal_solution_names, DataOut<dim>::type_dof_data,
-			   nodal_data_component_interpretation);
-  data_out.build_patches();
-  data_out.write_vtk(output1);
-  output1.close();
+template <int dim>
+double FEM<dim>::u_exact(double x){
+	double result = fbar * (x*x*x / 6) / E + g1;
+	//diriclet bc
+	if (prob == 2)
+	{
+		const double ux0 = h / E - L * L / 2 / E;
+		result += x * ux0;
+	}
+	else
+	{
+		const double ux0 = (g2 - g1) / L - L * L / 6 / E;
+		result += ux0 * x;
+	}
+	return result;
 }
 
 template <int dim>
 double FEM<dim>::l2norm_of_error(){
 	
-  double l2norm = 0.;
+	double l2norm = 0.;
 
-  //Find the l2 norm of the error between the finite element sol'n and the exact sol'n
-  const unsigned int   			dofs_per_elem = fe.dofs_per_cell; //This gives you dofs per element
-  std::vector<unsigned int> local_dof_indices (dofs_per_elem);
-  double u_exact, u_h, x, h_e;
+	//Find the l2 norm of the error between the finite element sol'n and the exact sol'n
+	const unsigned int   			dofs_per_elem = fe.dofs_per_cell; //This gives you dofs per element
+	std::vector<unsigned int> local_dof_indices (dofs_per_elem);
+	double u_h, x, h_e;
 
-  //loop over elements  
-  typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active (), 
-    endc = dof_handler.end();
-  for (;elem!=endc; ++elem){
+	//loop over elements  
+	typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active (), 
+	endc = dof_handler.end();
+	for (;elem!=endc; ++elem){
+		//Retrieve the effective "connectivity matrix" for this element
+		elem->get_dof_indices (local_dof_indices);
 
-    //Retrieve the effective "connectivity matrix" for this element
-    elem->get_dof_indices (local_dof_indices);
+		//Find the element length
+		h_e = nodeLocation[local_dof_indices[1]] - nodeLocation[local_dof_indices[0]];
 
-    //Find the element length
-    h_e = nodeLocation[local_dof_indices[1]] - nodeLocation[local_dof_indices[0]];
+		double sum = 0.;
+		for(unsigned int q=0; q<quadRule; q++){
+			x = 0.; u_h = 0.;
+			//Find the values of x and u_h (the finite element solution) at the quadrature points
+			for(unsigned int B=0; B<dofs_per_elem; B++){
+				x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+				u_h += D[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+			}
+			//EDIT - Find the l2-norm of the error through numerical integration.
+			/*This includes evaluating the exact solution at the quadrature points*/
+			sum += pow(u_exact(x) - u_h, 2) * quad_weight[q];
+		}
+		sum *= h_e / 2;
+		l2norm += sum;
+	}
 
-    for(unsigned int q=0; q<quadRule; q++){
-      x = 0.; u_h = 0.;
-      //Find the values of x and u_h (the finite element solution) at the quadrature points
-      for(unsigned int B=0; B<dofs_per_elem; B++){
-	x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
-	u_h += D[local_dof_indices[B]]*basis_function(B,quad_points[q]);
-      }
-      //EDIT - Find the l2-norm of the error through numerical integration.
-      /*This includes evaluating the exact solution at the quadrature points*/
-							
-    }
-  }
-
-  return sqrt(l2norm);
+	return sqrt(l2norm);
 }
