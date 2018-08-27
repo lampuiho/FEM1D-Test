@@ -10,7 +10,7 @@
 #include "writeSolutions.h"
 
 //The main program, using the FEM class
-int main() {
+int main(int argc, char *argv[]) {
 	try {
 		deallog.depth_console(0);
 
@@ -20,6 +20,12 @@ int main() {
 		//Specify the subproblem: 1 or 2
 		unsigned int problem = 1;
 
+		std::istringstream ss(argv[1]);
+		if (argc > 0)
+			ss >> order;
+		if (argc > 1)
+			ss >> problem;
+
 		FEM<1> problemObject(order, problem);
 
 		//Define the number of elements as an input to "generate_mesh"
@@ -27,7 +33,8 @@ int main() {
 		problemObject.setup_system();
 		problemObject.assemble_system();
 		problemObject.solve();
-		std::cout << problemObject.l2norm_of_error() << std::endl;
+		double l2norm = problemObject.l2norm_of_error();
+		std::cout << l2norm << std::endl;
 
 		//write output file in vtk format for visualization
 		problemObject.output_results();
@@ -35,7 +42,7 @@ int main() {
 		//write solutions to h5 file
 		char tag[21];
 		snprintf(tag, 21, "CA1_Order%d_Problem%d", order, problem);
-		writeSolutionsToFileCA1(problemObject.D, problemObject.l2norm_of_error(), tag);
+		writeSolutionsToFileCA1(problemObject.D, l2norm, tag);
 	}
 	catch (std::exception &exc) {
 		std::cerr << std::endl << std::endl

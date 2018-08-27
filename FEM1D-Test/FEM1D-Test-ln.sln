@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2003
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FEM1D-ln", "..\FEM1D-ln\FEM1D-ln.vcxproj", "{B32E5A63-FF6F-4202-BE4B-45E4A392E301}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B32E5A63-FF6F-4202-BE4B-45E4A392E301}.Debug|x64.ActiveCfg = Debug|x64
+		{B32E5A63-FF6F-4202-BE4B-45E4A392E301}.Debug|x64.Build.0 = Debug|x64
+		{B32E5A63-FF6F-4202-BE4B-45E4A392E301}.Release|x64.ActiveCfg = Release|x64
+		{B32E5A63-FF6F-4202-BE4B-45E4A392E301}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {02D73982-E8B6-4771-ADCE-60961FA2A3B4}
+	EndGlobalSection
+EndGlobal

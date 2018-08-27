@@ -90,7 +90,8 @@ class FEM
 		Vector<double>        D, F; 		 //Global vectors - Solution vector (D) and Global force vector (F)
 		std::vector<double>   nodeLocation;	 //Vector of the x-coordinate of nodes by global dof number
 		std::map<unsigned int,double> boundary_values;	//Map of dirichlet boundary conditions
-		double                basisFunctionOrder, prob, L, g1, g2;
+		unsigned int		basisFunctionOrder, prob;
+		double				L, g1, g2;
 
 		//solution name array
 		std::vector<std::string> nodal_solution_names;
@@ -167,7 +168,12 @@ double FEM<dim>::basis_function(unsigned int node, double xi){
 	double xi_ref = xi_at_node(node);
 	for (unsigned int i = 0; i < (basisFunctionOrder + 1) * dim; ++i)
 		if (i != node)
-			value *= (xi - xi_at_node(i)) / (xi_ref - xi_at_node(i));
+		{
+			double nom = (xi - xi_at_node(i));
+			if (nom == 0.)
+				return 0.;
+			value *= nom / (xi_ref - xi_at_node(i));
+		}
 
 	return value;
 }
@@ -187,10 +193,12 @@ double FEM<dim>::basis_gradient(unsigned int node, double xi){
 	at any node in the element - using deal.II's element node numbering pattern.*/
 
 	//EDIT
+	double L = basis_function(node, xi);
+	if (L == 0.) return 0.;
 	for (unsigned int i = 0; i < (basisFunctionOrder + 1) * dim; i++)
 		if (i != node)
 			value += 1 / (xi - xi_at_node(i));
-	value *= basis_function(node, xi);
+	value *= L;
 
 	return value;
 }
@@ -271,15 +279,41 @@ void FEM<dim>::setup_system(){
 
   //Define quadrature rule
   /*A quad rule of 2 is included here as an example. You will need to decide
-    what quadrature rule is needed for the given problems*/
-  quadRule = 2; //EDIT - Number of quadrature points along one dimension
+	what quadrature rule is needed for the given problems*/
+  quadRule = basisFunctionOrder + 1; //EDIT - Number of quadrature points along one dimension
   quad_points.resize(quadRule); quad_weight.resize(quadRule);
+  switch (basisFunctionOrder){//EDIT
+  case 1:
+	  quad_points[0] = -sqrt(1. / 3.);
+	  quad_points[1] = sqrt(1. / 3.);
 
-  quad_points[0] = -sqrt(1./3.); //EDIT
-  quad_points[1] = sqrt(1./3.); //EDIT
+	  quad_weight[0] = 1.;
+	  quad_weight[1] = 1.;
+	  break;
+  case 2:
+	  quad_points[0] = 0;
+	  quad_points[1] = sqrt(3. / 5.);
+	  quad_points[2] = -sqrt(3. / 5.);
 
-  quad_weight[0] = 1.; //EDIT
-  quad_weight[1] = 1.; //EDIT
+	  quad_weight[0] = 8./9.;
+	  quad_weight[1] = 5./9.;
+	  quad_weight[2] = 5./9.;
+	  break;
+  case 3:
+	  quad_points[0] = -sqrt(3./7.-2./7.*sqrt(6./5.));
+	  quad_points[1] = sqrt(3. / 7. - 2. / 7.*sqrt(6. / 5.));
+	  quad_points[2] = -sqrt(3. / 7. + 2. / 7.*sqrt(6. / 5.));
+	  quad_points[3] = sqrt(3. / 7. + 2. / 7.*sqrt(6. / 5.));
+
+	  quad_weight[0] = (18.+sqrt(30))/36;
+	  quad_weight[1] = (18. + sqrt(30)) / 36;
+	  quad_weight[2] = (18. - sqrt(30)) / 36;
+	  quad_weight[3] = (18. - sqrt(30)) / 36;
+	  break;
+  default:
+	  throw std::runtime_error("Invalid basis function order.");
+	  break;
+  }
 
   //Just some notes...
   std::cout << "   Number of active elems:       " << triangulation.n_active_cells() << std::endl;
@@ -324,7 +358,7 @@ void FEM<dim>::assemble_system(){
 		Flocal = 0.;
 		for(unsigned int A=0; A<dofs_per_elem; A++){
 			for(unsigned int q=0; q<quadRule; q++){
-				x = 0;
+				x = 0.;
 				//Interpolate the x-coordinates at the nodes to find the x-coordinate at the quad pt.
 				for(unsigned int B=0; B<dofs_per_elem; B++){
 					x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
@@ -334,7 +368,7 @@ void FEM<dim>::assemble_system(){
 				Flocal[A] += f * quad_weight[q] * basis_function(A, quad_points[q]);
 			}
 		}
-		Flocal *= h_e / 2;
+		Flocal *= h_e / 2.;
 
 		//Add nonzero Neumann condition, if applicable
 		if(prob == 2){ 
@@ -351,7 +385,7 @@ void FEM<dim>::assemble_system(){
 				for(unsigned int q=0; q<quadRule; q++){
 					//EDIT - Define Klocal.
 					double xi = quad_points[q];
-					Klocal[A][B] += quad_weight[q] * basis_function(A, xi) * basis_function(B, xi);
+					Klocal[A][B] += quad_weight[q] * basis_gradient(A, xi) * basis_gradient(B, xi);
 				}
 			}
 		}
@@ -376,6 +410,9 @@ void FEM<dim>::assemble_system(){
 
 	}
 
+	K.print_formatted(std::cout);
+	F.print(std::cout);
+
 	//Apply Dirichlet boundary conditions
 	/*deal.II applies Dirichlet boundary conditions (using the boundary_values map we
 	defined in the function "define_boundary_conds") without resizing K or F*/
@@ -397,7 +434,7 @@ void FEM<dim>::solve(){
 template <int dim>
 void FEM<dim>::output_results (){
 	char tag[21];
-	snprintf(tag, 21, "solution_%d_o%d.vtk", problem, order);
+	snprintf(tag, 21, "solution_%d_o%d.vtk", prob, basisFunctionOrder);
 	//Write results to VTK file
 	std::ofstream output1(tag);
 	DataOut<dim> data_out;
@@ -417,12 +454,12 @@ double FEM<dim>::u_exact(double x){
 	//diriclet bc
 	if (prob == 2)
 	{
-		const double ux0 = h / E - L * L / 2 / E;
+		const double ux0 = h / E - fbar * L * L / 2 / E;
 		result += x * ux0;
 	}
 	else
 	{
-		const double ux0 = (g2 - g1) / L - L * L / 6 / E;
+		const double ux0 = (g2 - g1) / L - fbar * L * L / 6 / E;
 		result += ux0 * x;
 	}
 	return result;
@@ -436,11 +473,19 @@ double FEM<dim>::l2norm_of_error(){
 	//Find the l2 norm of the error between the finite element sol'n and the exact sol'n
 	const unsigned int   			dofs_per_elem = fe.dofs_per_cell; //This gives you dofs per element
 	std::vector<unsigned int> local_dof_indices (dofs_per_elem);
+	Vector<double> u_ex; u_ex.reinit(dof_handler.n_dofs());
 	double u_h, x, h_e;
 
 	//loop over elements  
-	typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active (), 
-	endc = dof_handler.end();
+	for (unsigned int q = 0; q < dof_handler.n_dofs(); q++)
+		u_ex[q] = u_exact(nodeLocation[q]);
+	u_ex.print(std::cout);
+	for (auto i = nodeLocation.begin(); i != nodeLocation.end(); ++i)
+		std::cout << *i << ' ';
+	std::cout << std::endl;
+
+	typename DoFHandler<dim>::active_cell_iterator elem = dof_handler.begin_active(),
+		endc = dof_handler.end();
 	for (;elem!=endc; ++elem){
 		//Retrieve the effective "connectivity matrix" for this element
 		elem->get_dof_indices (local_dof_indices);
@@ -450,11 +495,12 @@ double FEM<dim>::l2norm_of_error(){
 
 		double sum = 0.;
 		for(unsigned int q=0; q<quadRule; q++){
-			x = 0.; u_h = 0.;
+			x = 0.;
+			u_h = 0.;
 			//Find the values of x and u_h (the finite element solution) at the quadrature points
 			for(unsigned int B=0; B<dofs_per_elem; B++){
-				x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
 				u_h += D[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+				x += nodeLocation[local_dof_indices[B]] * basis_function(B, quad_points[q]);
 			}
 			//EDIT - Find the l2-norm of the error through numerical integration.
 			/*This includes evaluating the exact solution at the quadrature points*/
