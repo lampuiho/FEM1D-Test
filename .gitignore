@@ -262,5 +262,13 @@ __pycache__/
 /latex
 /html
 /CppDependOut
-/CS5182.dox
-/CS5182.cdproj
+/FEM1D-Test.dox
+/FEM1D-Test.cdproj
+
+# CMake Files
+/CMakeFiles
+CMakeCache.txt
+
+# Solution Files
+*.vtk
+*.h5

@@ -42,7 +42,7 @@
 using namespace dealii;
 
 template <int dim>
-class FEM
+class FEM1DWave
 {
 	const double E = pow(10,11);
 	const double fbar = pow(10,11);
@@ -50,8 +50,8 @@ class FEM
 
 	public:
 		//Class functions
-		FEM (unsigned int order,unsigned int problem); // Class constructor 
-		~FEM(); //Class destructor
+		FEM1DWave (unsigned int order,unsigned int problem); // Class constructor 
+		~FEM1DWave(); //Class destructor
 
 		//Function to find the value of xi at the given node (using deal.II node numbering)
 		double xi_at_node(unsigned int dealNode);
@@ -100,7 +100,7 @@ class FEM
 
 // Class constructor for a vector field
 template <int dim>
-FEM<dim>::FEM(unsigned int order,unsigned int problem)
+FEM1DWave<dim>::FEM1DWave(unsigned int order,unsigned int problem)
 :
 fe (FE_Q<dim>(order), dim), 
   dof_handler (triangulation)
@@ -123,13 +123,13 @@ fe (FE_Q<dim>(order), dim),
 
 //Class destructor
 template <int dim>
-FEM<dim>::~FEM(){
+FEM1DWave<dim>::~FEM1DWave(){
   dof_handler.clear();
 }
 
 //Find the value of xi at the given node (using deal.II node numbering)
 template <int dim>
-double FEM<dim>::xi_at_node(unsigned int dealNode){
+double FEM1DWave<dim>::xi_at_node(unsigned int dealNode){
   double xi;
 
   if(dealNode == 0){
@@ -153,7 +153,7 @@ double FEM<dim>::xi_at_node(unsigned int dealNode){
 
 //Define basis functions
 template <int dim>
-double FEM<dim>::basis_function(unsigned int node, double xi){
+double FEM1DWave<dim>::basis_function(unsigned int node, double xi){
 	/*"basisFunctionOrder" defines the polynomial order of the basis function,
 	"node" specifies which node the basis function corresponds to, 
 	"xi" is the point (in the bi-unit domain) where the function is being evaluated.
@@ -180,7 +180,7 @@ double FEM<dim>::basis_function(unsigned int node, double xi){
 
 //Define basis function gradient
 template <int dim>
-double FEM<dim>::basis_gradient(unsigned int node, double xi){
+double FEM1DWave<dim>::basis_gradient(unsigned int node, double xi){
 	/*"basisFunctionOrder" defines the polynomial order of the basis function,
 	"node" specifies which node the basis function corresponds to, 
 	"xi" is the point (in the bi-unit domain) where the function is being evaluated.
@@ -205,7 +205,7 @@ double FEM<dim>::basis_gradient(unsigned int node, double xi){
 
 //Define the problem domain and generate the mesh
 template <int dim>
-void FEM<dim>::generate_mesh(unsigned int numberOfElements){
+void FEM1DWave<dim>::generate_mesh(unsigned int numberOfElements){
 
 	//Define the limits of your domain
 	L = 0.1; //EDIT
@@ -219,7 +219,7 @@ void FEM<dim>::generate_mesh(unsigned int numberOfElements){
 
 //Specify the Dirichlet boundary conditions
 template <int dim>
-void FEM<dim>::define_boundary_conds(){
+void FEM1DWave<dim>::define_boundary_conds(){
   const unsigned int totalNodes = dof_handler.n_dofs(); //Total number of nodes
 
   //Identify dirichlet boundary nodes and specify their values.
@@ -248,7 +248,7 @@ void FEM<dim>::define_boundary_conds(){
 
 //Setup data structures (sparse matrix, vectors)
 template <int dim>
-void FEM<dim>::setup_system(){
+void FEM1DWave<dim>::setup_system(){
 
   //Define constants for problem (Dirichlet boundary values)
   g1 = 0.; g2 = 0.001; //EDIT
@@ -321,7 +321,7 @@ void FEM<dim>::setup_system(){
 }
 
 template <int dim>
-double FEM<dim>::forcing_function(double x)
+double FEM1DWave<dim>::forcing_function(double x)
 {
 	return fbar * x;
 }
@@ -329,7 +329,7 @@ double FEM<dim>::forcing_function(double x)
 
 //Form elmental vectors and matrices and assemble to the global vector (F) and matrix (K)
 template <int dim>
-void FEM<dim>::assemble_system(){
+void FEM1DWave<dim>::assemble_system(){
 
 	K=0; F=0;
 
@@ -356,15 +356,16 @@ void FEM<dim>::assemble_system(){
 
 		//Loop over local DOFs and quadrature points to populate Flocal and Klocal.
 		Flocal = 0.;
-		for(unsigned int A=0; A<dofs_per_elem; A++){
-			for(unsigned int q=0; q<quadRule; q++){
-				x = 0.;
-				//Interpolate the x-coordinates at the nodes to find the x-coordinate at the quad pt.
-				for(unsigned int B=0; B<dofs_per_elem; B++){
-					x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
-				}
-				//EDIT - Define Flocal
-				f = forcing_function(x);
+		for(unsigned int q=0; q<quadRule; q++){
+			x = 0.;
+			//Interpolate the x-coordinates at the nodes to find the x-coordinate at the quad pt.
+			for(unsigned int B=0; B<dofs_per_elem; B++){
+				x += nodeLocation[local_dof_indices[B]]*basis_function(B,quad_points[q]);
+			}
+			//EDIT - Define Flocal
+			f = forcing_function(x);
+			
+			for(unsigned int A=0; A<dofs_per_elem; A++){
 				Flocal[A] += f * quad_weight[q] * basis_function(A, quad_points[q]);
 			}
 		}
@@ -421,7 +422,7 @@ void FEM<dim>::assemble_system(){
 
 //Solve for D in KD=F
 template <int dim>
-void FEM<dim>::solve(){
+void FEM1DWave<dim>::solve(){
 
   //Solve for D
   SparseDirectUMFPACK  A;
@@ -432,7 +433,7 @@ void FEM<dim>::solve(){
 
 //Output results
 template <int dim>
-void FEM<dim>::output_results (){
+void FEM1DWave<dim>::output_results (){
 	char tag[21];
 	snprintf(tag, 21, "solution_%d_o%d.vtk", prob, basisFunctionOrder);
 	//Write results to VTK file
@@ -449,7 +450,7 @@ void FEM<dim>::output_results (){
 }
 
 template <int dim>
-double FEM<dim>::u_exact(double x){
+double FEM1DWave<dim>::u_exact(double x){
 	double result = fbar * (x*x*x / 6) / E + g1;
 	//diriclet bc
 	if (prob == 2)
@@ -466,7 +467,7 @@ double FEM<dim>::u_exact(double x){
 }
 
 template <int dim>
-double FEM<dim>::l2norm_of_error(){
+double FEM1DWave<dim>::l2norm_of_error(){
 	
 	double l2norm = 0.;
 
