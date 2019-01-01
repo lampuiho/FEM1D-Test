@@ -5,14 +5,6 @@
 # Set the name of the project and target:
 SET(TARGET "FEM1D-Test")
 
-# Declare all source files the target consists of:
-SET(TARGET_SRC
-  ${TARGET}.cpp
-  # You can specify additional files here!
-  )
-
-# Usually, you will not need to modify anything beyond this point...
-
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 
 FIND_PACKAGE(deal.II 8.0 QUIET
@@ -28,4 +20,8 @@ ENDIF()
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(${TARGET})
+FILE(GLOB TARGET_SRC "*.cpp")
+SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 DEAL_II_INVOKE_AUTOPILOT()

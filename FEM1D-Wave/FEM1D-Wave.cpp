@@ -14,15 +14,14 @@ int main(int argc, char *argv[]) {
 		deallog.depth_console(0);
 
 		//Specify the basis function order: 1, 2, or 3
-		unsigned int order = 3;
-		unsigned int problem = 1;
-		
+		unsigned int order = 3, problem = 1;
+		/*
 		std::istringstream ss(argv[1]);
 		if (argc > 0)
 			ss >> order;
 		if (argc > 1)
 			ss >> problem;
-
+			*/
 		FEM1DWave problemObject(order, problem);
 
 		//Define the number of elements as an input to "generate_mesh"

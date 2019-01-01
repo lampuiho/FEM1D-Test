@@ -88,6 +88,7 @@ void FEM1DWave::setup_system() {
 	P1.reinit(dof_handler.n_dofs());
 	P2.reinit(dof_handler.n_dofs());
 	V.reinit(dof_handler.n_dofs());
+	RHS.reinit(dof_handler.n_dofs());
 	constraints.close();
 	
 	//Just some notes...
@@ -164,6 +165,8 @@ void FEM1DWave::run() {
 
 		//write output file in vtk format for visualization
 		output_results();
+
+		std::cout << "   Total energy: " << (M.matrix_norm_square(V) + K.matrix_norm_square(P1)) / 2 << std::endl;
 	}
 }
 
@@ -198,7 +201,7 @@ void FEM1DWave::define_boundary_conds() {
 
 //Output results
 void FEM1DWave::output_results() {
-	const std::string tag = "./sln/" + Utilities::int_to_string(basis.size() - 1) + "_step_" + Utilities::int_to_string(n) + ".vtk";
+	const std::string tag = "./sln/wave_o" + Utilities::int_to_string(basis.size() - 1) + "_step_" + Utilities::int_to_string(n) + ".vtk";
 	//Write results to VTK file
 	std::ofstream output1(tag);
 	DataOut<1> data_out;
