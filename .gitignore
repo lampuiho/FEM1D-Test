@@ -266,8 +266,11 @@ __pycache__/
 /FEM1D-Test.cdproj
 
 # CMake Files
-/CMakeFiles
+CMakeFiles/
 CMakeCache.txt
+cmake_install.cmake
+Makefile
+bin/
 
 # Solution Files
 *.vtk
