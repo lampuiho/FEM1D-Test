@@ -18,16 +18,20 @@
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/fe_q.h>
 
+#include <filesystem>
+
 #include "FEM1DWave.h"
+
+namespace fs = std::filesystem;
 
 // Class constructor for a vector field
 FEM1DWave::FEM1DWave(unsigned int order, unsigned int problem)
 	:
+	n(0),
 	fe(FE_Q<1>(order), 1),
 	dof_handler(triangulation),
 	basis(QGauss<1>(order + 1)),
-	src(FEM1DGauSrc(Point<1>(0.5), 0.05, 0.05, 0.1 / T)),
-	n(0)
+	src(FEM1DGauSrc(Point<1>(0.5), 0.05, 0.05, 0.1 / T))
 {
 	if (problem == 1 || problem == 2) {
 		prob = problem;
@@ -94,19 +98,26 @@ void FEM1DWave::setup_system() {
 	//Just some notes...
 	std::cout << "   Number of active elems:       " << triangulation.n_active_cells() << std::endl;
 	std::cout << "   Number of degrees of freedom: " << dof_handler.n_dofs() << std::endl;
+
+
+	//make sure solution folder exists
+	if (!fs::is_directory("sln") || !fs::exists("sln")) { // Check if src folder exists
+		fs::create_directory("sln"); // create src folder
+	}
 }
 
 //Form elmental vectors and matrices and assemble to the global vector (F) and matrix (K)
 void FEM1DWave::assemble_system() {
 	MatrixCreator::create_mass_matrix(dof_handler, basis, M);
 	MatrixCreator::create_laplace_matrix(dof_handler, basis,K);
-	Au = M;
+	Au.copy_from(M);
 	Au.add(T*T*theta*theta, K);
 
 	//zero initial conditions
 	P1 = 0;
 	P2 = 0;
 	V = 0;
+	F = 0;
 }
 
 void FEM1DWave::solve_p()
@@ -120,7 +131,7 @@ void FEM1DWave::solve_p()
 
 void FEM1DWave::solve_v()
 {
-	SolverControl           solver_control(1000, 1e-8*F.l2_norm());
+	SolverControl           solver_control(1000, 1e-8*RHS.l2_norm());
 	SolverCG<>              cg(solver_control);
 	cg.solve(M, P2, RHS, PreconditionIdentity());
 	V += P2;
@@ -140,8 +151,8 @@ void FEM1DWave::run() {
 		
 		P2 = P1;
 		tmp = P2;
-		tmp *= T * T*theta*(1 - theta);
-		K.vmult_add(RHS, tmp);
+		tmp *= -T * T*theta*(1 - theta);
+		K.vmult(RHS, tmp);
 		tmp = V;
 		tmp.sadd(T, P2);
 		M.vmult_add(RHS, tmp);
